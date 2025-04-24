@@ -1,0 +1,86 @@
+-- Create database if it doesn't exist
+CREATE DATABASE IF NOT EXISTS todo_app;
+USE todo_app;
+
+-- Create todos table if it doesn't exist
+CREATE TABLE IF NOT EXISTS todos (
+  id INT AUTO_INCREMENT PRIMARY KEY,
+  title VARCHAR(255) NOT NULL,
+  description TEXT,
+  difficulty ENUM('Easy', 'Medium', 'Hard') DEFAULT 'Medium',
+  due_date DATE,
+  completed BOOLEAN DEFAULT FALSE,
+  created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+  updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
+);
+
+-- Create indexes (with error handling for existing indexes)
+DELIMITER //
+CREATE PROCEDURE create_index_if_not_exists()
+BEGIN
+  -- For completed index
+  IF NOT EXISTS (
+    SELECT 1 FROM INFORMATION_SCHEMA.STATISTICS 
+    WHERE table_schema = DATABASE() 
+    AND table_name = 'todos' 
+    AND index_name = 'idx_todos_completed'
+  ) THEN
+    CREATE INDEX idx_todos_completed ON todos(completed);
+  END IF;
+  
+  -- For difficulty index
+  IF NOT EXISTS (
+    SELECT 1 FROM INFORMATION_SCHEMA.STATISTICS 
+    WHERE table_schema = DATABASE() 
+    AND table_name = 'todos' 
+    AND index_name = 'idx_todos_difficulty'
+  ) THEN
+    CREATE INDEX idx_todos_difficulty ON todos(difficulty);
+  END IF;
+  
+  -- For due_date index
+  IF NOT EXISTS (
+    SELECT 1 FROM INFORMATION_SCHEMA.STATISTICS 
+    WHERE table_schema = DATABASE() 
+    AND table_name = 'todos' 
+    AND index_name = 'idx_todos_due_date'
+  ) THEN
+    CREATE INDEX idx_todos_due_date ON todos(due_date);
+  END IF;
+END //
+DELIMITER ;
+
+-- Execute the procedure
+CALL create_index_if_not_exists();
+
+-- Drop the procedure after use
+DROP PROCEDURE IF EXISTS create_index_if_not_exists;
+
+-- Insert sample data only if table is empty
+INSERT INTO todos (title, description, difficulty, due_date, completed)
+SELECT * FROM (
+  SELECT 
+    'Complete project' AS title, 
+    'Finish the todo app with all features' AS description, 
+    'Hard' AS difficulty, 
+    '2023-12-31' AS due_date, 
+    FALSE AS completed
+  UNION ALL
+  SELECT 
+    'Buy groceries', 
+    'Milk, eggs, and bread', 
+    'Easy', 
+    '2023-11-15', 
+    FALSE
+  UNION ALL
+  SELECT 
+    'Learn React', 
+    'Study hooks and context API', 
+    'Medium', 
+    NULL, 
+    TRUE
+) AS tmp
+WHERE NOT EXISTS (SELECT 1 FROM todos LIMIT 1);
+
+-- View all todos
+SELECT * FROM todos;
